@@ -9,7 +9,7 @@ import { LinkPreset } from "./types/config";
 
 export const siteConfig: SiteConfig = {
 	title: "sleepyud444ng",
-	subtitle: "offensive security practioner",
+	subtitle: "offensive security practitioner",
 	lang: "en", // Language code, e.g. 'en', 'zh_CN', 'ja', etc.
 	themeColor: {
 		hue: 160, // Default hue for the theme color, from 0 to 360. e.g. red: 0, teal: 200, cyan: 250, pink: 345
@@ -54,8 +54,8 @@ export const navBarConfig: NavBarConfig = {
 
 export const profileConfig: ProfileConfig = {
 	avatar: "assets/images/S03E08TheGlepEpThumb.jpg", // Relative to the /src directory. Relative to the /public directory if it starts with '/'
-	name: "offensive security practioner",
-	bio: "offensive security practioner",
+	name: "offensive security practitioner",
+	bio: "offensive security practitioner",
 	links: [
 		{
 			name: "GitHub",

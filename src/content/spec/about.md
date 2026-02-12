@@ -1,5 +1,5 @@
 # About
-offensive security practioner
+offensive security practitioner
 
 - ctf
 - machine

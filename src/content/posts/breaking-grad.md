@@ -15,6 +15,8 @@ The core issue is an unsafe recursive merge in `/api/calculate`, which allows at
 
 Once polluted, process-level options are abused and execution is triggered through `/debug/version`.
 
+![Challenge overview screenshot](/posts/breaking-grad/overview.png)
+
 ## Vulnerable Surface
 
 - `POST /api/calculate`: accepts JSON and merges it using insecure object merge logic.
@@ -43,6 +45,8 @@ Abuse `constructor.prototype` to set:
 
 This causes code in `env.x` to run when the process is forked.
 
+![Prototype pollution payload](/posts/breaking-grad/prototype-payload.png)
+
 ### 2) Enumerate files
 
 Send to `/api/calculate`:
@@ -62,6 +66,8 @@ Send to `/api/calculate`:
 
 Then trigger with `GET /debug/version` to list files and find the randomized flag filename.
 
+![File enumeration result](/posts/breaking-grad/list-files-result.png)
+
 ### 3) Read the flag
 
 Repeat with a second payload:
@@ -80,6 +86,8 @@ Repeat with a second payload:
 ```
 
 Trigger `GET /debug/version` again to retrieve the flag output.
+
+![Flag extraction result](/posts/breaking-grad/flag-result.png)
 
 ## Why This Works
 
